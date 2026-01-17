@@ -508,15 +508,12 @@
             gameState.playerName = name;
             gameState.gameCode = generateGameCode();
             gameState.playerId = Math.random().toString(36).substr(2, 9);
-            gameState.playerCount = 1;
 
             document.getElementById('homeScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'flex';
             document.getElementById('roomCode').textContent = gameState.gameCode;
-            updatePlayerCount();
             
-            // In a real implementation, this would connect to WebSocket
-            console.log('Game created:', gameState.gameCode);
+            connectToGame();
         }
 
         function joinGame() {
@@ -536,14 +533,161 @@
             gameState.playerName = name;
             gameState.gameCode = code;
             gameState.playerId = Math.random().toString(36).substr(2, 9);
-            gameState.playerCount = Math.floor(Math.random() * 5) + 2; // Simulated for demo
 
             document.getElementById('homeScreen').style.display = 'none';
             document.getElementById('gameScreen').style.display = 'flex';
             document.getElementById('roomCode').textContent = gameState.gameCode;
-            updatePlayerCount();
             
-            console.log('Joined game:', gameState.gameCode);
+            connectToGame();
+        }
+
+        function connectToGame() {
+            if (WORKER_URL === 'YOUR_WORKER_URL_HERE') {
+                showError('Please update WORKER_URL in the code!');
+                return;
+            }
+
+            const wsUrl = WORKER_URL.replace('https://', 'wss://') + '/game/' + gameState.gameCode;
+            
+            try {
+                gameState.ws = new WebSocket(wsUrl);
+
+                gameState.ws.onopen = () => {
+                    console.log('Connected to game server');
+                    gameState.ws.send(JSON.stringify({
+                        type: 'join',
+                        playerId: gameState.playerId,
+                        name: gameState.playerName
+                    }));
+                };
+
+                gameState.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleServerMessage(data);
+                };
+
+                gameState.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showError('Connection error. Check WORKER_URL.');
+                };
+
+                gameState.ws.onclose = () => {
+                    console.log('Disconnected from server');
+                };
+            } catch (error) {
+                console.error('Failed to connect:', error);
+                showError('Could not connect to server');
+            }
+        }
+
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'joined':
+                    console.log('Joined game successfully');
+                    gameState.players = {};
+                    data.players.forEach(p => {
+                        gameState.players[p.id] = p;
+                    });
+                    break;
+
+                case 'playerCount':
+                    gameState.playerCount = data.count;
+                    updatePlayerCount();
+                    break;
+
+                case 'gameStarted':
+                    gameState.isKiller = data.isKiller;
+                    gameState.players = {};
+                    data.players.forEach(p => {
+                        gameState.players[p.id] = p;
+                    });
+                    document.getElementById('waitingRoom').style.display = 'none';
+                    document.getElementById('gameContainer').style.display = 'block';
+                    initializeGame();
+                    break;
+
+                case 'playerMoved':
+                    if (gameState.players[data.playerId]) {
+                        gameState.players[data.playerId].position = data.position;
+                        gameState.players[data.playerId].battery = data.battery;
+                    }
+                    break;
+
+                case 'playerKilled':
+                    if (gameState.players[data.victimId]) {
+                        gameState.players[data.victimId].isDead = true;
+                        gameState.bodies.push({
+                            id: data.victimId,
+                            position: data.position
+                        });
+                    }
+                    if (data.victimId === gameState.playerId) {
+                        gameState.isDead = true;
+                        stats.deaths++;
+                        saveStats();
+                    }
+                    break;
+
+                case 'cluesCreated':
+                    gameState.clues = data.clues;
+                    break;
+
+                case 'votingStarted':
+                    startVotingUI(data.players);
+                    break;
+
+                case 'votingEnded':
+                    endVotingUI(data);
+                    break;
+
+                case 'gameEnded':
+                    handleGameEnd(data);
+                    break;
+            }
+        }
+
+        function startVotingUI(players) {
+            document.getElementById('votingScreen').style.display = 'flex';
+            const playerList = document.getElementById('playerVoteList');
+            playerList.innerHTML = '';
+            
+            players.forEach(player => {
+                const btn = document.createElement('button');
+                btn.className = 'player-vote-btn';
+                btn.textContent = player.name;
+                btn.onclick = () => {
+                    gameState.ws.send(JSON.stringify({
+                        type: 'vote',
+                        suspectId: player.id
+                    }));
+                    btn.style.background = 'rgba(102, 126, 234, 0.5)';
+                };
+                playerList.appendChild(btn);
+            });
+        }
+
+        function endVotingUI(data) {
+            document.getElementById('votingScreen').style.display = 'none';
+        }
+
+        function handleGameEnd(data) {
+            stats.gamesPlayed++;
+            const won = (data.winner === 'innocent' && !gameState.isKiller) || 
+                        (data.winner === 'killer' && gameState.isKiller);
+            
+            if (won) {
+                stats.gamesWon++;
+                if (gameState.isKiller) stats.killerWins++;
+                else stats.innocentWins++;
+            }
+            
+            saveStats();
+            
+            alert(`Game Over! ${data.winner === 'innocent' ? 'Innocents' : 'Killer'} won!`);
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
         }
 
         function updatePlayerCount() {
@@ -572,13 +716,9 @@
                 return;
             }
 
-            document.getElementById('waitingRoom').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'block';
-            
-            // Randomly assign killer
-            gameState.isKiller = Math.random() < 0.125;
-            
-            initializeGame();
+            if (gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
+                gameState.ws.send(JSON.stringify({ type: 'startGame' }));
+            }
         }
 
         function initializeGame() {
@@ -684,6 +824,7 @@
         document.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
         let lastBatteryUpdate = Date.now();
+        let lastPositionSend = Date.now();
 
         function gameLoop() {
             const speed = 3;
@@ -713,6 +854,17 @@
             if (canMove) {
                 gameState.position.x = Math.max(60, Math.min(1120, newX));
                 gameState.position.y = Math.max(60, Math.min(720, newY));
+                
+                // Send position to server every 100ms
+                const now = Date.now();
+                if (now - lastPositionSend > 100 && gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
+                    gameState.ws.send(JSON.stringify({
+                        type: 'move',
+                        position: gameState.position,
+                        battery: gameState.battery
+                    }));
+                    lastPositionSend = now;
+                }
             }
 
             // Update battery
@@ -731,6 +883,22 @@
                     if (dist < 40 && keys['e']) {
                         gameState.battery = Math.min(100, gameState.battery + 2);
                         updateBatteryDisplay();
+                    }
+                });
+            }
+
+            // Check for kills (if killer)
+            if (gameState.isKiller && keys['k'] && !gameState.isDead) {
+                Object.values(gameState.players).forEach(player => {
+                    if (player.id !== gameState.playerId && !player.isDead) {
+                        const dist = Math.hypot(gameState.position.x - player.position.x, gameState.position.y - player.position.y);
+                        if (dist < 50 && gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
+                            gameState.ws.send(JSON.stringify({
+                                type: 'kill',
+                                victimId: player.id
+                            }));
+                            keys['k'] = false;
+                        }
                     }
                 });
             }
@@ -779,6 +947,26 @@
                 ctx.fill();
             });
 
+            // Draw other players
+            Object.values(gameState.players).forEach(player => {
+                if (player.id !== gameState.playerId) {
+                    ctx.fillStyle = player.isKiller ? '#ef4444' : '#667eea';
+                    ctx.fillRect(player.position.x, player.position.y, 30, 30);
+                    
+                    // Name tag
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px Arial';
+                    ctx.fillText(player.name, player.position.x, player.position.y - 5);
+                }
+            });
+
+            // Draw bodies
+            gameState.bodies.forEach(body => {
+                ctx.fillStyle = '#8B0000';
+                ctx.fillRect(body.position.x, body.position.y, 30, 30);
+            });
+
+            // Draw current player
             ctx.fillStyle = gameState.isKiller ? '#ef4444' : '#667eea';
             ctx.fillRect(gameState.position.x, gameState.position.y, 30, 30);
         }
@@ -809,5 +997,3 @@
             gameState.walls.forEach(wall => {
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
             });
-
-            
