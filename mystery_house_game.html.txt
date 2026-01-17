@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mystery House</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Haunted mansion background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.9) 100%),
+                radial-gradient(ellipse at 50% 0%, rgba(139, 0, 0, 0.3) 0%, transparent 50%),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><rect fill="%23111" width="1200" height="800"/><path fill="%23050505" d="M0 600 L600 200 L1200 600 L1200 800 L0 800 Z"/><rect fill="%23222" x="520" y="300" width="160" height="300"/><rect fill="%23111" x="540" y="500" width="50" height="100"/><rect fill="%23000" x="550" y="320" width="30" height="40"/><rect fill="%23000" x="610" y="320" width="30" height="40"/><rect fill="%23000" x="550" y="400" width="30" height="40"/><rect fill="%23000" x="610" y="400" width="30" height="40"/><polygon fill="%23333" points="600,150 400,250 800,250"/><rect fill="%23222" x="200" y="450" width="120" height="150"/><rect fill="%23222" x="880" y="450" width="120" height="150"/><rect fill="%23000" x="220" y="480" width="35" height="50"/><rect fill="%23000" x="265" y="480" width="35" height="50"/><rect fill="%23000" x="900" y="480" width="35" height="50"/><rect fill="%23000" x="945" y="480" width="35" height="50"/></svg>');
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            animation: fogMove 20s ease-in-out infinite;
+        }
+
+        @keyframes fogMove {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        #homeScreen, #gameScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 220px;
+        }
+
+        #gameScreen {
+            display: none;
+            padding: 10px;
+        }
+
+        .title {
+            font-size: clamp(2em, 8vw, 4em);
+            font-weight: bold;
+            margin: 40px 0 30px 0;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.5);
+            color: #ff4444;
+            animation: flicker 3s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+            75% { opacity: 0.9; }
+        }
+
+        .input-container {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        input {
+            padding: 15px 25px;
+            font-size: 1.1em;
+            border: 2px solid #444;
+            background: rgba(20, 20, 20, 0.9);
+            color: #fff;
+            border-radius: 10px;
+            width: 100%;
+            margin: 5px 0;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            width: 100%;
+            max-width: 300px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 10, 0.95);
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            border-top: 3px solid #444;
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        @media (max-width: 600px) {
+            .stats-container {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                padding: 15px 10px;
+            }
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: clamp(1.5em, 4vw, 2em);
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: clamp(0.7em, 2vw, 0.9em);
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        #gameCanvas {
+            border: 3px solid #444;
+            background: #000;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            max-width: 100%;
+            height: auto;
+            touch-action: none;
+        }
+
+        .game-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #444;
+            font-size: clamp(0.8em, 2vw, 1em);
+            z-index: 10;
+        }
+
+        .battery-bar {
+            width: clamp(150px, 30vw, 200px);
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #666;
+            margin-top: 10px;
+        }
+
+        .battery-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+            transition: width 0.3s;
+        }
+
+        .battery-fill.low {
+            background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .role-display {
+            font-size: clamp(1.2em, 3vw, 1.5em);
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .role-display.killer {
+            color: #ef4444;
+        }
+
+        .role-display.innocent {
+            color: #4ade80;
+        }
+
+        #votingScreen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .player-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .player-vote-btn {
+            padding: 20px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #667eea;
+        }
+
+        .code-display {
+            font-size: clamp(1.5em, 5vw, 2em);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 40px;
+            border-radius: 10px;
+            margin: 20px 0;
+            letter-spacing: 5px;
+            border: 2px solid #667eea;
+        }
+
+        .waiting-room {
+            text-align: center;
+        }
+
+        .player-count {
+            font-size: clamp(1.2em, 3vw, 1.5em);
+            margin: 20px 0;
+            color: #4ade80;
+        }
+
+        .error-message {
+            color: #ef4444;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        /* Mobile controls */
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: flex;
+            }
+        }
+
+        .joystick {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+
+        .joystick-handle {
+            width: 50px;
+            height: 50px;
+            background: rgba(102, 126, 234, 0.8);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.8);
+            border: 3px solid #fff;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .action-btn:active {
+            background: rgba(102, 126, 234, 1);
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="homeScreen">
+        <div class="title">MYSTERY HOUSE</div>
+        
+        <div class="input-container">
+            <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
+        </div>
+
+        <div class="input-container">
+            <button onclick="createGame()">Create Game</button>
+            <input type="text" id="gameCode" placeholder="Enter game code" maxlength="6" style="text-transform: uppercase;">
+            <button onclick="joinGame()">Join Game</button>
+        </div>
+
+        <div id="errorMsg" class="error-message"></div>
+
+        <div class="stats-container">
+            <div class="stat-item">
+                <div class="stat-value" id="gamesPlayed">0</div>
+                <div class="stat-label">Games Played</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="gamesWon">0</div>
+                <div class="stat-label">Games Won</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="innocentWins">0</div>
+                <div class="stat-label">Innocent Wins</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="killerWins">0</div>
+                <div class="stat-label">Killer Wins</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="deaths">0</div>
+                <div class="stat-label">Deaths</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="bodiesReported">0</div>
+                <div class="stat-label">Bodies Reported</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gameScreen">
+        <div class="waiting-room" id="waitingRoom">
+            <h2>Waiting for players...</h2>
+            <div class="code-display" id="roomCode"></div>
+            <div class="player-count" id="playerCount">0/8 players</div>
+            <div style="color: #fbbf24; margin: 10px 0;">Minimum 3 players required</div>
+            <button onclick="startGame()" id="startBtn" disabled>Start Game (Need 3+ players)</button>
+        </div>
+
+        <div id="gameContainer" style="display: none; position: relative;">
+            <div class="game-ui">
+                <div class="role-display" id="roleDisplay"></div>
+                <div>Battery: <span id="batteryPercent">100%</span></div>
+                <div class="battery-bar">
+                    <div class="battery-fill" id="batteryFill"></div>
+                </div>
+                <div style="margin-top: 10px;">Alive: <span id="aliveCount">8</span></div>
+            </div>
+            <canvas id="gameCanvas" width="1200" height="800"></canvas>
+            
+            <!-- Mobile controls -->
+            <div class="mobile-controls">
+                <div class="joystick" id="joystick">
+                    <div class="joystick-handle" id="joystickHandle"></div>
+                </div>
+                <div class="action-buttons">
+                    <div class="action-btn" id="actionBtn">E</div>
+                    <div class="action-btn" id="killBtn">K</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="votingScreen">
+        <h2 style="font-size: 2.5em; margin-bottom: 20px;">WHO IS THE KILLER?</h2>
+        <div class="player-list" id="playerVoteList"></div>
+        <div id="voteTimer" style="font-size: 1.5em; margin-top: 20px;">Time remaining: 30s</div>
+    </div>
+
+    <script>
+        const WORKER_URL = 'YOUR_WORKER_URL_HERE'; // Replace with your Cloudflare Worker URL
+        
+        let gameState = {
+            playerName: '',
+            gameCode: '',
+            playerId: null,
+            isKiller: false,
+            isDead: false,
+            battery: 100,
+            position: { x: 400, y: 400 },
+            flashlightOn: true,
+            players: {},
+            bodies: [],
+            clues: [],
+            chargeStations: [
+                { x: 200, y: 200 },
+                { x: 1000, y: 600 }
+            ],
+            centerTable: { x: 600, y: 400, width: 100, height: 60 },
+            walls: [],
+            ws: null,
+            playerCount: 0
+        };
+
+        let stats = {
+            gamesPlayed: 0,
+            gamesWon: 0,
+            innocentWins: 0,
+            killerWins: 0,
+            deaths: 0,
+            bodiesReported: 0
+        };
+
+        // Mobile joystick
+        let joystickActive = false;
+        let joystickPosition = { x: 0, y: 0 };
+
+        // Load stats from localStorage
+        function loadStats() {
+            const savedStats = localStorage.getItem('mysteryHouseStats');
+            if (savedStats) {
+                stats = JSON.parse(savedStats);
+                updateStatsDisplay();
+            }
+        }
+
+        function saveStats() {
+            localStorage.setItem('mysteryHouseStats', JSON.stringify(stats));
+            updateStatsDisplay();
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('gamesPlayed').textContent = stats.gamesPlayed;
+            document.getElementById('gamesWon').textContent = stats.gamesWon;
+            document.getElementById('innocentWins').textContent = stats.innocentWins;
+            document.getElementById('killerWins').textContent = stats.killerWins;
+            document.getElementById('deaths').textContent = stats.deaths;
+            document.getElementById('bodiesReported').textContent = stats.bodiesReported;
+        }
+
+        function generateGameCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        function createGame() {
+            const name = document.getElementById('playerName').value.trim();
+            if (!name) {
+                showError('Please enter your name');
+                return;
+            }
+
+            gameState.playerName = name;
+            gameState.gameCode = generateGameCode();
+            gameState.playerId = Math.random().toString(36).substr(2, 9);
+            gameState.playerCount = 1;
+
+            document.getElementById('homeScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'flex';
+            document.getElementById('roomCode').textContent = gameState.gameCode;
+            updatePlayerCount();
+            
+            // In a real implementation, this would connect to WebSocket
+            console.log('Game created:', gameState.gameCode);
+        }
+
+        function joinGame() {
+            const name = document.getElementById('playerName').value.trim();
+            const code = document.getElementById('gameCode').value.trim().toUpperCase();
+            
+            if (!name) {
+                showError('Please enter your name');
+                return;
+            }
+            
+            if (!code || code.length !== 6) {
+                showError('Please enter a valid 6-character game code');
+                return;
+            }
+
+            gameState.playerName = name;
+            gameState.gameCode = code;
+            gameState.playerId = Math.random().toString(36).substr(2, 9);
+            gameState.playerCount = Math.floor(Math.random() * 5) + 2; // Simulated for demo
+
+            document.getElementById('homeScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'flex';
+            document.getElementById('roomCode').textContent = gameState.gameCode;
+            updatePlayerCount();
+            
+            console.log('Joined game:', gameState.gameCode);
+        }
+
+        function updatePlayerCount() {
+            document.getElementById('playerCount').textContent = `${gameState.playerCount}/8 players`;
+            
+            const startBtn = document.getElementById('startBtn');
+            if (gameState.playerCount >= 3) {
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Game';
+            } else {
+                startBtn.disabled = true;
+                startBtn.textContent = `Start Game (Need ${3 - gameState.playerCount} more)`;
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMsg').textContent = msg;
+            setTimeout(() => {
+                document.getElementById('errorMsg').textContent = '';
+            }, 3000);
+        }
+
+        function startGame() {
+            if (gameState.playerCount < 3) {
+                showError('Need at least 3 players to start!');
+                return;
+            }
+
+            document.getElementById('waitingRoom').style.display = 'none';
+            document.getElementById('gameContainer').style.display = 'block';
+            
+            // Randomly assign killer
+            gameState.isKiller = Math.random() < 0.125;
+            
+            initializeGame();
+        }
+
+        function initializeGame() {
+            const roleDisplay = document.getElementById('roleDisplay');
+            if (gameState.isKiller) {
+                roleDisplay.textContent = 'KILLER';
+                roleDisplay.className = 'role-display killer';
+            } else {
+                roleDisplay.textContent = 'INNOCENT';
+                roleDisplay.className = 'role-display innocent';
+            }
+
+            generateHouseLayout();
+            setupMobileControls();
+            gameLoop();
+        }
+
+        function generateHouseLayout() {
+            gameState.walls = [
+                { x: 50, y: 50, width: 1100, height: 20 },
+                { x: 50, y: 50, width: 20, height: 700 },
+                { x: 50, y: 730, width: 1100, height: 20 },
+                { x: 1130, y: 50, width: 20, height: 700 },
+                { x: 300, y: 50, width: 20, height: 300 },
+                { x: 600, y: 200, width: 20, height: 400 },
+                { x: 900, y: 100, width: 20, height: 350 },
+                { x: 300, y: 500, width: 400, height: 20 },
+            ];
+        }
+
+        function setupMobileControls() {
+            const joystick = document.getElementById('joystick');
+            const handle = document.getElementById('joystickHandle');
+
+            joystick.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                joystickActive = true;
+                updateJoystick(e.touches[0]);
+            });
+
+            joystick.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (joystickActive) {
+                    updateJoystick(e.touches[0]);
+                }
+            });
+
+            joystick.addEventListener('touchend', () => {
+                joystickActive = false;
+                joystickPosition = { x: 0, y: 0 };
+                handle.style.transform = 'translate(-50%, -50%)';
+            });
+
+            function updateJoystick(touch) {
+                const rect = joystick.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let deltaX = touch.clientX - centerX;
+                let deltaY = touch.clientY - centerY;
+                
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                const maxDistance = 35;
+                
+                if (distance > maxDistance) {
+                    deltaX = (deltaX / distance) * maxDistance;
+                    deltaY = (deltaY / distance) * maxDistance;
+                }
+                
+                joystickPosition.x = deltaX / maxDistance;
+                joystickPosition.y = deltaY / maxDistance;
+                
+                handle.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            }
+
+            // Action buttons
+            document.getElementById('actionBtn').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys['e'] = true;
+            });
+
+            document.getElementById('actionBtn').addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys['e'] = false;
+            });
+
+            document.getElementById('killBtn').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys['k'] = true;
+            });
+
+            document.getElementById('killBtn').addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys['k'] = false;
+            });
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+
+        let lastBatteryUpdate = Date.now();
+
+        function gameLoop() {
+            const speed = 3;
+            let newX = gameState.position.x;
+            let newY = gameState.position.y;
+
+            // Keyboard controls
+            if (keys['w'] || keys['ArrowUp']) newY -= speed;
+            if (keys['s'] || keys['ArrowDown']) newY += speed;
+            if (keys['a'] || keys['ArrowLeft']) newX -= speed;
+            if (keys['d'] || keys['ArrowRight']) newX += speed;
+
+            // Mobile joystick controls
+            if (joystickActive) {
+                newX += joystickPosition.x * speed * 2;
+                newY += joystickPosition.y * speed * 2;
+            }
+
+            // Collision detection
+            const canMove = !gameState.walls.some(wall => 
+                newX < wall.x + wall.width &&
+                newX + 30 > wall.x &&
+                newY < wall.y + wall.height &&
+                newY + 30 > wall.y
+            );
+
+            if (canMove) {
+                gameState.position.x = Math.max(60, Math.min(1120, newX));
+                gameState.position.y = Math.max(60, Math.min(720, newY));
+            }
+
+            // Update battery
+            if (!gameState.isDead && !gameState.isKiller && gameState.flashlightOn) {
+                const now = Date.now();
+                const elapsed = (now - lastBatteryUpdate) / 1000;
+                gameState.battery = Math.max(0, gameState.battery - (elapsed / 75 * 100));
+                lastBatteryUpdate = now;
+                updateBatteryDisplay();
+            }
+
+            // Check charge stations
+            if (!gameState.isDead && !gameState.isKiller) {
+                gameState.chargeStations.forEach(station => {
+                    const dist = Math.hypot(gameState.position.x - station.x, gameState.position.y - station.y);
+                    if (dist < 40 && keys['e']) {
+                        gameState.battery = Math.min(100, gameState.battery + 2);
+                        updateBatteryDisplay();
+                    }
+                });
+            }
+
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateBatteryDisplay() {
+            const percent = Math.round(gameState.battery);
+            document.getElementById('batteryPercent').textContent = percent + '%';
+            document.getElementById('batteryFill').style.width = percent + '%';
+            
+            if (percent < 25) {
+                document.getElementById('batteryFill').classList.add('low');
+            } else {
+                document.getElementById('batteryFill').classList.remove('low');
+            }
+        }
+
+        function render() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState.isDead) {
+                renderFullMap();
+            } else {
+                renderWithFlashlight();
+            }
+        }
+
+        function renderFullMap() {
+            ctx.fillStyle = '#444';
+            gameState.walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            });
+
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(gameState.centerTable.x, gameState.centerTable.y, 
+                         gameState.centerTable.width, gameState.centerTable.height);
+
+            ctx.fillStyle = '#4ade80';
+            gameState.chargeStations.forEach(station => {
+                ctx.beginPath();
+                ctx.arc(station.x, station.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = gameState.isKiller ? '#ef4444' : '#667eea';
+            ctx.fillRect(gameState.position.x, gameState.position.y, 30, 30);
+        }
+
+        function renderWithFlashlight() {
+            const viewRadius = gameState.battery > 0 ? 150 : 50;
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const gradient = ctx.createRadialGradient(
+                gameState.position.x + 15, gameState.position.y + 15, 0,
+                gameState.position.x + 15, gameState.position.y + 15, viewRadius
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 200, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(gameState.position.x + 15, gameState.position.y + 15, viewRadius, 0, Math.PI * 2);
+            ctx.clip();
+
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#444';
+            gameState.walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            });
+
+            
